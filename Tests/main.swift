@@ -148,6 +148,27 @@ test("Default art parses to sane dimensions") {
     expectEqual(art.height, 8, "logo is 8 rows (6 letters + gap + subtitle)")
 }
 
+// MARK: - BlockFont
+
+test("BlockFont renders plain text as block art") {
+    let art = BlockFont.render("LEAP CRM")
+    expectEqual(art.height, 6, "block glyphs are 6 rows")
+    expect(art.width > 50, "LEAP CRM is wide block art, got \(art.width)")
+    let handle = BlockFont.render("me1g0")
+    expectEqual(handle.height, 6, "lowercase uppercased and rendered")
+    expect(handle.width > 30, "ME1G0 has substance, got \(handle.width)")
+}
+
+test("BlockFont passes multi-line input through unchanged") {
+    let raw = "AB\nCD"
+    expectEqual(BlockFont.render(raw).height, 2, "raw art untouched")
+}
+
+test("BlockFont substitutes ? for unknown chars") {
+    let art = BlockFont.render("A✈B")
+    expectEqual(art.height, 6, "unknown char doesn't break rendering")
+}
+
 // MARK: - Config
 
 test("Config sanitized clamps garbage") {
@@ -183,6 +204,17 @@ test("Config from garbage dictionary never crashes") {
     expectEqual(c.enabledEffects, EffectRegistry.allNames, "garbage effects ignored")
 }
 
+test("Config artTexts produce rotating arts") {
+    var c = Config.default
+    c.artTexts = ["LEAP CRM", "me1g0"]
+    expectEqual(c.resolvedArts.count, 2, "two text entries")
+    c.customArt = "line1\nline2"
+    expectEqual(c.resolvedArts.count, 3, "raw art appended")
+    c.artTexts = []
+    c.customArt = "  "
+    expectEqual(c.resolvedArts.count, 1, "empty config falls back to logo")
+}
+
 test("Config dictionary roundtrip") {
     var c = Config.default
     c.theme = "matrix"
@@ -196,7 +228,8 @@ test("Config dictionary roundtrip") {
 test("Theme lookup and ramp") {
     expect(Theme.named("matrix") != nil, "matrix theme exists")
     expect(Theme.named("nope") == nil, "unknown theme nil")
-    expectEqual(Theme.all.count, 4, "four built-in themes")
+    expectEqual(Theme.all.count, 6, "six built-in themes")
+    expect(Theme.rainbow.gradientSpeed > 0, "rainbow gradient animates")
     let t = Theme.matrix
     expectEqual(t.rampColor(0), t.ramp.first!, "ramp t=0 is first stop")
     expectEqual(t.rampColor(1), t.ramp.last!, "ramp t=1 is last stop")

@@ -33,6 +33,7 @@ func makeConfig() -> Config {
     if let theme = argValue("--theme") { config.theme = theme }
     if let speed = argValue("--speed").flatMap(Double.init) { config.speed = speed }
     if let font = argValue("--font").flatMap(Double.init) { config.fontSize = font }
+    if let text = argValue("--text") { config.artTexts = [text] }
     if args.contains("--reduced-motion") { config.reducedMotion = true }
     return config.sanitized
 }

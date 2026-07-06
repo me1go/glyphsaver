@@ -28,6 +28,7 @@ public final class MatrixRainEffect: GlyphEffect {
 
     private var phase = Phase.rain
     private var phaseElapsed = 0.0
+    private var elapsed = 0.0
     private var reduced = false
 
     private var rainDuration = 4.5
@@ -46,6 +47,7 @@ public final class MatrixRainEffect: GlyphEffect {
         isComplete = false
         phase = .rain
         phaseElapsed = 0
+        elapsed = 0
         rainDuration = reduced ? 6.0 : rng.double(in: 3.5...5.5)
 
         let count = ctx.cols * ctx.rows
@@ -79,6 +81,7 @@ public final class MatrixRainEffect: GlyphEffect {
     public func update(dt: Double, canvas: inout GlyphCanvas) {
         guard ctx != nil, !isComplete else { return }
         phaseElapsed += dt
+        elapsed += dt
 
         advanceColumns(dt: dt)
         decayTrails(dt: dt)
@@ -237,9 +240,10 @@ public final class MatrixRainEffect: GlyphEffect {
         for (idx, cell) in ctx.artCells.enumerated() {
             let age = artLockAge[idx]
             guard age >= 0 else { continue }
+            let base = ctx.artColor(idx, elapsed: elapsed)
             let color = age < 0.35
-                ? RGBA.lerp(theme.bright, theme.art, age / 0.35)
-                : theme.art
+                ? RGBA.lerp(theme.bright, base, age / 0.35)
+                : base
             canvas.put(GlyphCell(cell.scalar, fg: color, bold: age < 0.35), x: cell.x, y: cell.y)
         }
     }

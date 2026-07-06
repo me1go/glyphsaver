@@ -3,6 +3,10 @@ import Foundation
 /// User configuration. Every accessor is tolerant: any missing/garbage value
 /// falls back to its default — invalid config must never crash the saver.
 public struct Config: Codable, Equatable {
+    /// Plain texts rendered through the built-in block font ("LEAP CRM" → big
+    /// ANSI-Shadow letters). Multiple entries rotate between effect cycles.
+    public var artTexts: [String]
+    /// Ready-made multi-line ASCII art, shown as-is (optional extra entry).
     public var customArt: String
     public var enabledEffects: [String]
     public var theme: String
@@ -15,6 +19,7 @@ public struct Config: Codable, Equatable {
     public var reducedMotion: Bool
 
     public static let `default` = Config(
+        artTexts: [],
         customArt: "",
         enabledEffects: EffectRegistry.allNames,
         theme: "omarchy",
@@ -25,8 +30,10 @@ public struct Config: Codable, Equatable {
         reducedMotion: false
     )
 
-    public init(customArt: String, enabledEffects: [String], theme: String, fps: Double,
-                speed: Double, fontSize: Double, cycleMode: String, reducedMotion: Bool) {
+    public init(artTexts: [String], customArt: String, enabledEffects: [String],
+                theme: String, fps: Double, speed: Double, fontSize: Double,
+                cycleMode: String, reducedMotion: Bool) {
+        self.artTexts = artTexts
         self.customArt = customArt
         self.enabledEffects = enabledEffects
         self.theme = theme
@@ -37,9 +44,28 @@ public struct Config: Codable, Equatable {
         self.reducedMotion = reducedMotion
     }
 
+    // Tolerate config.json files written before artTexts existed.
+    public init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        let d = Config.default
+        artTexts = (try? c.decode([String].self, forKey: .artTexts)) ?? d.artTexts
+        customArt = (try? c.decode(String.self, forKey: .customArt)) ?? d.customArt
+        enabledEffects = (try? c.decode([String].self, forKey: .enabledEffects)) ?? d.enabledEffects
+        theme = (try? c.decode(String.self, forKey: .theme)) ?? d.theme
+        fps = (try? c.decode(Double.self, forKey: .fps)) ?? d.fps
+        speed = (try? c.decode(Double.self, forKey: .speed)) ?? d.speed
+        fontSize = (try? c.decode(Double.self, forKey: .fontSize)) ?? d.fontSize
+        cycleMode = (try? c.decode(String.self, forKey: .cycleMode)) ?? d.cycleMode
+        reducedMotion = (try? c.decode(Bool.self, forKey: .reducedMotion)) ?? d.reducedMotion
+    }
+
     /// Clamped/validated copy safe to hand to the animation pipeline.
     public var sanitized: Config {
         var c = self
+        c.artTexts = c.artTexts
+            .map { String($0.prefix(80)) }
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+        if c.artTexts.count > 12 { c.artTexts = Array(c.artTexts.prefix(12)) }
         if c.customArt.count > 200_000 { c.customArt = String(c.customArt.prefix(200_000)) }
         c.enabledEffects = c.enabledEffects.filter { EffectRegistry.allNames.contains($0) }
         if c.enabledEffects.isEmpty { c.enabledEffects = EffectRegistry.allNames }
@@ -56,15 +82,26 @@ public struct Config: Codable, Equatable {
         Theme.named(theme) ?? .omarchy
     }
 
-    public var resolvedArt: AsciiArt {
+    /// All art pieces to rotate through: each text via the block font, plus the
+    /// raw custom art if present. Empty config falls back to the built-in logo.
+    public var resolvedArts: [AsciiArt] {
+        var arts = sanitized.artTexts.map { BlockFont.render($0) }
         let trimmed = customArt.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? DefaultArt.art : AsciiArt(text: customArt)
+        if !trimmed.isEmpty {
+            arts.append(AsciiArt(text: customArt))
+        }
+        return arts.isEmpty ? [DefaultArt.art] : arts
+    }
+
+    public var resolvedArt: AsciiArt {
+        resolvedArts[0]
     }
 
     // MARK: - Dictionary bridging (for ScreenSaverDefaults / UserDefaults)
 
     public static func fromDictionary(_ dict: [String: Any]) -> Config {
         var c = Config.default
+        if let v = dict["artTexts"] as? [String] { c.artTexts = v }
         if let v = dict["customArt"] as? String { c.customArt = v }
         if let v = dict["enabledEffects"] as? [String] { c.enabledEffects = v }
         if let v = dict["theme"] as? String { c.theme = v }
@@ -78,6 +115,7 @@ public struct Config: Codable, Equatable {
 
     public func toDictionary() -> [String: Any] {
         [
+            "artTexts": artTexts,
             "customArt": customArt,
             "enabledEffects": enabledEffects,
             "theme": theme,

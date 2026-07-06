@@ -21,7 +21,7 @@ public final class OverflowGlitchEffect: GlyphEffect {
 
     private var artRowYs: [Int] = []          // unique art rows, top→bottom
     private var artRowLockAge: [Float] = []   // <0 unlocked
-    private var artByRow: [Int: [ArtCell]] = [:]
+    private var artByRow: [Int: [(index: Int, cell: ArtCell)]] = [:]
 
     private var burstUntil = -1.0
     private var burstSeed: UInt64 = 0
@@ -52,7 +52,8 @@ public final class OverflowGlitchEffect: GlyphEffect {
 
         buildJunkRows()
 
-        artByRow = Dictionary(grouping: ctx.artCells, by: \.y)
+        artByRow = Dictionary(grouping: ctx.artCells.enumerated().map { ($0.offset, $0.element) },
+                              by: \.1.y)
         artRowYs = artByRow.keys.sorted()
         artRowLockAge = Array(repeating: -1, count: artRowYs.count)
     }
@@ -232,21 +233,22 @@ public final class OverflowGlitchEffect: GlyphEffect {
         for (i, y) in artRowYs.enumerated() {
             let age = artRowLockAge[i]
             guard age >= 0, let cells = artByRow[y] else { continue }
-            let color = age < 0.3
-                ? RGBA.lerp(theme.bright, theme.art, age / 0.3)
-                : theme.art
             let dx = glitching ? bandShiftDX(row: y) / 2 : 0
 
             if glitching && dx != 0 {
                 // Ghost copy for a chromatic-tear look.
-                for cell in cells {
+                for (_, cell) in cells {
                     canvas.put(
                         GlyphCell(cell.scalar, fg: theme.accent.withAlpha(0.35)),
                         x: cell.x - dx, y: cell.y
                     )
                 }
             }
-            for cell in cells {
+            for (idx, cell) in cells {
+                let base = ctx.artColor(idx, elapsed: elapsed)
+                let color = age < 0.3
+                    ? RGBA.lerp(theme.bright, base, age / 0.3)
+                    : base
                 let fg = glitching && dx != 0 ? RGBA.lerp(color, theme.accent, 0.4) : color
                 canvas.put(GlyphCell(cell.scalar, fg: fg, bold: age < 0.3), x: cell.x + dx, y: cell.y)
             }

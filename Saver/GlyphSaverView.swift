@@ -59,7 +59,8 @@ public final class GlyphSaverView: ScreenSaverView {
             setFrameSize(screen.frame.size)
         }
 
-        let config = Self.moduleDefaults.map(ConfigStore.load(from:)) ?? .default
+        // Studio-written config.json wins over the in-saver sheet's defaults.
+        let config = ConfigStore.loadPreferred(defaults: Self.moduleDefaults)
         let content = GlyphSaverContentView(
             frame: bounds,
             config: config,

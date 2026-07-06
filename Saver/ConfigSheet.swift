@@ -3,6 +3,8 @@ import GlyphSaverCore
 import GlyphSaverKit
 
 /// Programmatic options sheet (no XIB — this bundle is built with swiftc alone).
+/// When a Studio-managed config.json exists it takes precedence over anything
+/// saved here, so the sheet shows a notice.
 final class ConfigSheet: NSObject {
     let window: NSPanel
     private let defaults: UserDefaults?
@@ -17,6 +19,7 @@ final class ConfigSheet: NSObject {
     private let fontPopup = NSPopUpButton()
     private let reducedMotionCheck = NSButton(checkboxWithTitle: "Reduce motion",
                                               target: nil, action: nil)
+    private let textsView = NSTextView()
     private let artView = NSTextView()
 
     private static let fpsOptions: [Double] = [30, 60, 120]
@@ -28,7 +31,7 @@ final class ConfigSheet: NSObject {
     init(defaults: UserDefaults?) {
         self.defaults = defaults
         window = NSPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 520, height: 620),
+            contentRect: NSRect(x: 0, y: 0, width: 640, height: 780),
             styleMask: [.titled],
             backing: .buffered,
             defer: true
@@ -37,6 +40,26 @@ final class ConfigSheet: NSObject {
         window.title = "GlyphSaver Options"
         buildUI()
         loadValues()
+    }
+
+    private func makeMonoTextArea(height: CGFloat, view: NSTextView) -> NSScrollView {
+        view.font = NSFont(name: "Menlo", size: 11)
+            ?? .monospacedSystemFont(ofSize: 11, weight: .regular)
+        view.isRichText = false
+        view.isAutomaticQuoteSubstitutionEnabled = false
+        view.allowsUndo = true
+        view.autoresizingMask = [.width]
+        view.isVerticallyResizable = true
+        view.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
+                              height: CGFloat.greatestFiniteMagnitude)
+        view.textContainer?.widthTracksTextView = true
+        let scroll = NSScrollView()
+        scroll.documentView = view
+        scroll.hasVerticalScroller = true
+        scroll.borderType = .bezelBorder
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        scroll.heightAnchor.constraint(equalToConstant: height).isActive = true
+        return scroll
     }
 
     private func buildUI() {
@@ -53,14 +76,30 @@ final class ConfigSheet: NSObject {
             themePopup.lastItem?.representedObject = theme.id
         }
 
-        let effectsStack = NSStackView()
-        effectsStack.orientation = .horizontal
-        effectsStack.spacing = 12
+        // 37 effects → grid of checkboxes, 4 per row.
+        var effectRows: [[NSView]] = []
+        var row: [NSView] = []
         for name in EffectRegistry.allNames {
-            let check = NSButton(checkboxWithTitle: name.capitalized, target: nil, action: nil)
+            let check = NSButton(checkboxWithTitle: name, target: nil, action: nil)
+            check.font = .systemFont(ofSize: 11)
             effectChecks[name] = check
-            effectsStack.addArrangedSubview(check)
+            row.append(check)
+            if row.count == 4 {
+                effectRows.append(row)
+                row = []
+            }
         }
+        if !row.isEmpty { effectRows.append(row) }
+        let effectsGrid = NSGridView(views: effectRows)
+        effectsGrid.rowSpacing = 3
+        effectsGrid.columnSpacing = 8
+
+        let allButton = NSButton(title: "All", target: self, action: #selector(selectAllEffects))
+        let noneButton = NSButton(title: "None", target: self, action: #selector(selectNoEffects))
+        allButton.controlSize = .small
+        noneButton.controlSize = .small
+        let effectButtons = NSStackView(views: [allButton, noneButton])
+        effectButtons.orientation = .horizontal
 
         cyclePopup.addItem(withTitle: "Random order")
         cyclePopup.lastItem?.representedObject = "random"
@@ -81,25 +120,15 @@ final class ConfigSheet: NSObject {
         speedSlider.translatesAutoresizingMaskIntoConstraints = false
         speedSlider.widthAnchor.constraint(greaterThanOrEqualToConstant: 200).isActive = true
 
-        artView.font = NSFont(name: "Menlo", size: 11) ?? .monospacedSystemFont(ofSize: 11, weight: .regular)
-        artView.isRichText = false
-        artView.isAutomaticQuoteSubstitutionEnabled = false
-        artView.allowsUndo = true
-        let artScroll = NSScrollView()
-        artScroll.documentView = artView
-        artScroll.hasVerticalScroller = true
-        artScroll.borderType = .bezelBorder
-        artScroll.translatesAutoresizingMaskIntoConstraints = false
-        artScroll.heightAnchor.constraint(equalToConstant: 180).isActive = true
-        artView.autoresizingMask = [.width]
-        artView.minSize = NSSize(width: 0, height: 180)
-        artView.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude,
-                                 height: CGFloat.greatestFiniteMagnitude)
-        artView.isVerticallyResizable = true
-        artView.textContainer?.widthTracksTextView = true
+        let textsScroll = makeMonoTextArea(height: 70, view: textsView)
+        let artScroll = makeMonoTextArea(height: 110, view: artView)
 
+        let textsHint = NSTextField(wrappingLabelWithString:
+            "One text per line — each renders as big block letters and they rotate between effects.")
+        textsHint.font = .systemFont(ofSize: 11)
+        textsHint.textColor = .secondaryLabelColor
         let artHint = NSTextField(wrappingLabelWithString:
-            "Custom text or ASCII art (leave empty for the built-in logo). Paste FIGlet output, box art, whatever — it will be centered.")
+            "Optional ready-made ASCII art, shown as-is (FIGlet output, box art, …).")
         artHint.font = .systemFont(ofSize: 11)
         artHint.textColor = .secondaryLabelColor
 
@@ -108,14 +137,13 @@ final class ConfigSheet: NSObject {
 
         let grid = NSGridView(views: [
             [label("Theme"), themePopup],
-            [label("Effects"), effectsStack],
             [label("Cycle"), cyclePopup],
             [label("Speed"), speedRow],
             [label("Frame rate"), fpsPopup],
             [label("Font size"), fontPopup],
             [NSGridCell.emptyContentView, reducedMotionCheck],
         ])
-        grid.rowSpacing = 10
+        grid.rowSpacing = 8
         grid.column(at: 0).xPlacement = .trailing
 
         let okButton = NSButton(title: "OK", target: self, action: #selector(save))
@@ -127,10 +155,27 @@ final class ConfigSheet: NSObject {
         buttons.addView(cancelButton, in: .trailing)
         buttons.addView(okButton, in: .trailing)
 
-        let main = NSStackView(views: [grid, label("Custom art"), artHint, artScroll, buttons])
+        var stackedViews: [NSView] = []
+        if ConfigStore.configFileExists {
+            let notice = NSTextField(wrappingLabelWithString:
+                "⚠︎ Settings are currently managed by the GlyphSaver Studio app "
+                + "(config.json). Changes made here are ignored until that file is removed.")
+            notice.font = .systemFont(ofSize: 11, weight: .semibold)
+            notice.textColor = .systemOrange
+            stackedViews.append(notice)
+        }
+        stackedViews += [
+            grid,
+            label("Effects"), effectButtons, effectsGrid,
+            label("Texts"), textsHint, textsScroll,
+            label("Custom art"), artHint, artScroll,
+            buttons,
+        ]
+
+        let main = NSStackView(views: stackedViews)
         main.orientation = .vertical
         main.alignment = .leading
-        main.spacing = 12
+        main.spacing = 10
         main.edgeInsets = NSEdgeInsets(top: 20, left: 20, bottom: 20, right: 20)
         main.translatesAutoresizingMaskIntoConstraints = false
 
@@ -140,6 +185,7 @@ final class ConfigSheet: NSObject {
             main.leadingAnchor.constraint(equalTo: content.leadingAnchor),
             main.trailingAnchor.constraint(equalTo: content.trailingAnchor),
             main.bottomAnchor.constraint(equalTo: content.bottomAnchor),
+            textsScroll.widthAnchor.constraint(equalTo: main.widthAnchor, constant: -40),
             artScroll.widthAnchor.constraint(equalTo: main.widthAnchor, constant: -40),
             buttons.trailingAnchor.constraint(equalTo: main.trailingAnchor, constant: -20),
         ])
@@ -158,8 +204,17 @@ final class ConfigSheet: NSObject {
         let fontIndex = ConfigSheet.fontOptions.firstIndex { $0.1 == config.fontSize } ?? 0
         fontPopup.selectItem(at: fontIndex)
         reducedMotionCheck.state = config.reducedMotion ? .on : .off
+        textsView.string = config.artTexts.joined(separator: "\n")
         artView.string = config.customArt
         speedChanged()
+    }
+
+    @objc private func selectAllEffects() {
+        effectChecks.values.forEach { $0.state = .on }
+    }
+
+    @objc private func selectNoEffects() {
+        effectChecks.values.forEach { $0.state = .off }
     }
 
     @objc private func speedChanged() {
@@ -171,12 +226,15 @@ final class ConfigSheet: NSObject {
         config.theme = themePopup.selectedItem?.representedObject as? String ?? config.theme
         config.enabledEffects = effectChecks.compactMap { name, check in
             check.state == .on ? name : nil
-        }
+        }.sorted()
         config.cycleMode = cyclePopup.selectedItem?.representedObject as? String ?? "random"
         config.speed = speedSlider.doubleValue
         config.fps = fpsPopup.selectedItem?.representedObject as? Double ?? 60
         config.fontSize = fontPopup.selectedItem?.representedObject as? Double ?? 0
         config.reducedMotion = reducedMotionCheck.state == .on
+        config.artTexts = textsView.string
+            .split(separator: "\n").map(String.init)
+            .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         config.customArt = artView.string
         if let defaults {
             ConfigStore.save(config, to: defaults)

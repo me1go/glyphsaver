@@ -9,7 +9,8 @@ public final class AnimationController {
     private var rows: Int
     private let config: Config
     private let theme: Theme
-    private let art: AsciiArt
+    private let arts: [AsciiArt]
+    private var artIndex = 0
     private var effects: [GlyphEffect]
     private var rng: SeededRandom
     private var order: [Int] = []
@@ -22,7 +23,7 @@ public final class AnimationController {
         self.rows = max(rows, 1)
         self.config = config
         self.theme = config.resolvedTheme
-        self.art = config.resolvedArt
+        self.arts = config.resolvedArts
         self.canvas = GlyphCanvas(cols: self.cols, rows: self.rows)
         self.rng = SeededRandom(seed: seed)
         self.effects = config.enabledEffects.compactMap { EffectRegistry.make($0) }
@@ -69,7 +70,23 @@ public final class AnimationController {
         orderPos += 1
         lastPlayed = idx
         currentEffect = effects[idx]
+        advanceArt()
         resetCurrent()
+    }
+
+    /// Rotate to another art piece each cycle (random avoids showing the same
+    /// text twice in a row when there are alternatives).
+    private func advanceArt() {
+        guard arts.count > 1 else { return }
+        if config.cycleMode == "sequential" {
+            artIndex = (artIndex + 1) % arts.count
+        } else {
+            var next = rng.int(in: 0...(arts.count - 1))
+            if next == artIndex {
+                next = (next + 1) % arts.count
+            }
+            artIndex = next
+        }
     }
 
     private func reshuffle() {
@@ -90,7 +107,7 @@ public final class AnimationController {
         let ctx = EffectContext(
             cols: cols,
             rows: rows,
-            art: art,
+            art: arts[artIndex],
             theme: theme,
             seed: rng.next(),
             reducedMotion: config.reducedMotion

@@ -6,15 +6,36 @@ public struct EffectContext {
     public let theme: Theme
     public let seed: UInt64
     public let reducedMotion: Bool
+    /// Per-art-cell gradient position (diagonal across the art's bounding box).
+    private let artT: [Float]
 
     public init(cols: Int, rows: Int, art: AsciiArt, theme: Theme,
                 seed: UInt64, reducedMotion: Bool) {
         self.cols = max(cols, 1)
         self.rows = max(rows, 1)
-        self.artCells = art.placedCells(cols: self.cols, rows: self.rows)
+        let cells = art.placedCells(cols: self.cols, rows: self.rows)
+        self.artCells = cells
         self.theme = theme
         self.seed = seed
         self.reducedMotion = reducedMotion
+
+        if theme.artGradient.count > 1, !cells.isEmpty {
+            let minX = cells.map(\.x).min() ?? 0
+            let minY = cells.map(\.y).min() ?? 0
+            let maxX = cells.map(\.x).max() ?? 0
+            let maxY = cells.map(\.y).max() ?? 0
+            let span = Float(max((maxX - minX) + (maxY - minY), 1))
+            self.artT = cells.map { Float(($0.x - minX) + ($0.y - minY)) / span }
+        } else {
+            self.artT = []
+        }
+    }
+
+    /// Final color for an art cell: theme gradient across the art (drifting over
+    /// time when the theme animates), or the flat art color.
+    public func artColor(_ index: Int, elapsed: Double = 0) -> RGBA {
+        guard index >= 0, index < artT.count else { return theme.art }
+        return theme.artGradientColor(artT[index] + Float(elapsed) * theme.gradientSpeed)
     }
 }
 
@@ -28,13 +49,56 @@ public protocol GlyphEffect: AnyObject {
 }
 
 public enum EffectRegistry {
-    public static let allNames = ["matrix", "decrypt", "overflow"]
+    /// The full TerminalTextEffects showroom, by TTE's names.
+    public static let allNames = [
+        "beams", "binarypath", "blackhole", "bouncyballs", "bubbles", "burn",
+        "colorshift", "crumble", "decrypt", "errorcorrect", "expand", "fireworks",
+        "highlight", "laseretch", "matrix", "middleout", "orbittingvolley",
+        "overflow", "pour", "print", "rain", "randomsequence", "rings",
+        "scattered", "slice", "slide", "smoke", "spotlights", "spray", "swarm",
+        "sweep", "synthgrid", "thunderstorm", "unstable", "vhstape", "waves",
+        "wipe",
+    ]
 
     public static func make(_ name: String) -> GlyphEffect? {
         switch name {
-        case "matrix": return MatrixRainEffect()
+        case "beams": return BeamsEffect()
+        case "binarypath": return BinaryPathEffect()
+        case "blackhole": return BlackholeEffect()
+        case "bouncyballs": return BouncyBallsEffect()
+        case "bubbles": return BubblesEffect()
+        case "burn": return BurnEffect()
+        case "colorshift": return ColorShiftEffect()
+        case "crumble": return CrumbleEffect()
         case "decrypt": return DecryptEffect()
+        case "errorcorrect": return ErrorCorrectEffect()
+        case "expand": return ExpandEffect()
+        case "fireworks": return FireworksEffect()
+        case "highlight": return HighlightEffect()
+        case "laseretch": return LaserEtchEffect()
+        case "matrix": return MatrixRainEffect()
+        case "middleout": return MiddleOutEffect()
+        case "orbittingvolley": return OrbittingVolleyEffect()
         case "overflow": return OverflowGlitchEffect()
+        case "pour": return PourEffect()
+        case "print": return PrintEffect()
+        case "rain": return RainEffect()
+        case "randomsequence": return RandomSequenceEffect()
+        case "rings": return RingsEffect()
+        case "scattered": return ScatteredEffect()
+        case "slice": return SliceEffect()
+        case "slide": return SlideEffect()
+        case "smoke": return SmokeEffect()
+        case "spotlights": return SpotlightsEffect()
+        case "spray": return SprayEffect()
+        case "swarm": return SwarmEffect()
+        case "sweep": return SweepEffect()
+        case "synthgrid": return SynthGridEffect()
+        case "thunderstorm": return ThunderstormEffect()
+        case "unstable": return UnstableEffect()
+        case "vhstape": return VhsTapeEffect()
+        case "waves": return WavesEffect()
+        case "wipe": return WipeEffect()
         default: return nil
         }
     }

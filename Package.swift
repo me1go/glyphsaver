@@ -16,6 +16,11 @@ let package = Package(
             path: "PreviewApp"
         ),
         .executableTarget(
+            name: "GlyphSaverStudio",
+            dependencies: ["GlyphSaverCore", "GlyphSaverKit"],
+            path: "StudioApp"
+        ),
+        .executableTarget(
             name: "GlyphSaverTests",
             dependencies: ["GlyphSaverCore"],
             path: "Tests"

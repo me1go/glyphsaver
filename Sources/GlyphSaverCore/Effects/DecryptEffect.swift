@@ -139,9 +139,10 @@ public final class DecryptEffect: GlyphEffect {
             if lockAge[idx] >= 0 {
                 // Resolved: white flash decaying to the art color.
                 let age = lockAge[idx]
+                let base = ctx.artColor(idx, elapsed: elapsed)
                 var color = age < 0.4
-                    ? RGBA.lerp(theme.bright, theme.art, age / 0.4)
-                    : theme.art
+                    ? RGBA.lerp(theme.bright, base, age / 0.4)
+                    : base
                 if let pulse = shimmer[idx] {
                     let s = 1 - min(pulse / 0.6, 1)
                     color = RGBA.lerp(color, theme.accent, s * 0.7)

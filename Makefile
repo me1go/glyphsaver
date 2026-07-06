@@ -55,6 +55,23 @@ $(BUNDLE): $(CORE_SRC) $(KIT_SRC) $(SAVER_SRC) Saver/Info.plist Makefile
 	@echo "Built $(BUNDLE)"
 	@otool -h "$(BUNDLE)/Contents/MacOS/$(NAME)" | tail -3
 
+APP := $(BUILD)/GlyphSaver Studio.app
+
+app:
+	swift build -c release --product GlyphSaverStudio
+	rm -rf "$(APP)"
+	mkdir -p "$(APP)/Contents/MacOS"
+	cp .build/release/GlyphSaverStudio "$(APP)/Contents/MacOS/GlyphSaverStudio"
+	cp StudioApp/Info.plist "$(APP)/Contents/Info.plist"
+	codesign --force --sign - --timestamp=none "$(APP)"
+	@echo "Built $(APP)"
+
+install-app: app
+	rm -rf "$(HOME)/Applications/GlyphSaver Studio.app"
+	mkdir -p "$(HOME)/Applications"
+	cp -R "$(APP)" "$(HOME)/Applications/"
+	@echo "Installed to ~/Applications/GlyphSaver Studio.app"
+
 test:
 	swift run GlyphSaverTests
 

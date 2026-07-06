@@ -1,8 +1,9 @@
 # GlyphSaver
 
 A native macOS screensaver that renders fast, terminal-style ASCII/block-art
-animations — Matrix rain, movie-style decryption, and buffer-overflow glitch
-reveals — over your own ASCII art or the built-in block logo. Inspired by the
+animations over your own text (rendered as big block letters) or pasted ASCII
+art. All **37 effects from the TerminalTextEffects showroom** are implemented
+natively in Swift. Inspired by the
 [Omarchy](https://github.com/basecamp/omarchy) screensaver and
 [TerminalTextEffects](https://github.com/ChrisBuilds/terminaltexteffects).
 
@@ -12,16 +13,21 @@ Terminal windows.
 
 ## Features
 
-- **3 effects**, cycled randomly or sequentially, each: reveal → hold → fade
-  - `matrix` — digital rain with bright heads and fading trails that fills the
-    screen, then resolves into the art
-  - `decrypt` — ciphertext types in across the art, flickers, then locks to the
-    real glyphs in scattered order with a white flash
-  - `overflow` — shuffled copies of the art's own rows flood up from the bottom
-    in scrolling color bands with glitch tearing, then the true art locks in
-- **4 themes**: Omarchy (Tokyo Night blues), Matrix Green, Amber CRT, ANSI/BBS
-- **Custom art**: paste any text/ASCII/block art in the options sheet; it is
-  centered and the font auto-fits. Empty = built-in logo.
+- **All 37 TTE showroom effects**, cycled randomly or sequentially, each:
+  reveal → hold → fade. beams, binarypath, blackhole, bouncyballs, bubbles,
+  burn, colorshift, crumble, decrypt, errorcorrect, expand, fireworks,
+  highlight, laseretch, matrix, middleout, orbittingvolley, overflow, pour,
+  print, rain, randomsequence, rings, scattered, slice, slide, smoke,
+  spotlights, spray, swarm, sweep, synthgrid, thunderstorm, unstable, vhstape,
+  waves, wipe.
+- **6 themes**: Omarchy (Tokyo Night blues), Matrix Green, Amber CRT, ANSI/BBS,
+  Synthwave (magenta→cyan→white gradient), Rainbow (drifting hue cycle). Most
+  themes color the art with a gradient across its bounding box, TTE-style.
+- **Your text as block art**: type plain texts ("LEAP CRM", "me1g0") and they
+  render through a built-in ANSI-Shadow block font — no FIGlet needed. Multiple
+  texts rotate between effect cycles. Raw multi-line ASCII art also supported.
+- **GlyphSaver Studio** — a companion Mac app with a live preview and all
+  settings; one click pushes the config straight to the screensaver.
 - Multi-monitor: one independently-seeded animation per display
 - 60 fps default (30/120 configurable), speed 0.25–4×, reduced-motion mode
 - Renders ~28,000 cells at 4K in under 1 ms/frame (batched CoreText)
@@ -31,10 +37,27 @@ Terminal windows.
 ```sh
 make            # builds build/GlyphSaver.saver (universal arm64 + x86_64)
 make install    # copies to ~/Library/Screen Savers and restarts the saver host
+make install-app  # builds + installs ~/Applications/GlyphSaver Studio.app
 ```
 
 Then: **System Settings → Screen Saver → Other → GlyphSaver**. If System
 Settings was open during install, quit and reopen it.
+
+## GlyphSaver Studio (recommended way to configure)
+
+Open **GlyphSaver Studio** (in `~/Applications`). Left side is a live preview;
+right side has every setting: texts (one per line), raw art, theme, all 37
+effect checkboxes, cycle order, speed, frame rate, font size, reduced motion.
+
+- Changes apply to the live preview as you type.
+- **Apply to Screensaver** (⌘S) writes
+  `~/Library/Application Support/GlyphSaver/config.json`, which the saver reads
+  every time it starts — no reinstall, no System Settings dance.
+- While config.json exists it *wins* over the in-saver Options sheet (the sheet
+  shows a notice). **Remove Studio Config** hands control back to the sheet.
+
+The sandboxed saver host can read (not write) the real home directory, which is
+why the app→saver channel is a JSON file rather than shared preferences.
 
 Other targets:
 
@@ -56,26 +79,26 @@ swift run -c release GlyphSaverPreview --soak 1800   # memory soak, prints RSS
 
 ## Configuration
 
-Click **Options…** under the saver in System Settings:
+Use **GlyphSaver Studio** (above), or click **Options…** under the saver in
+System Settings:
 
 | Setting | Values | Default |
 |---|---|---|
-| Theme | Omarchy / Matrix Green / Amber CRT / ANSI-BBS | Omarchy |
-| Effects | any subset of matrix, decrypt, overflow | all |
+| Theme | Omarchy / Matrix / Amber / ANSI / Synthwave / Rainbow | Omarchy |
+| Effects | any subset of the 37 | all |
 | Cycle | random (no back-to-back repeats) or sequential | random |
 | Speed | 0.25×–4× | 1× |
 | Frame rate | 30 / 60 / 120 fps | 60 |
 | Font size | auto-fit or 10–32 pt | auto-fit |
-| Reduce motion | slower fall, no flicker/glitch bursts | off |
-| Custom art | any pasted text; centered, cropped if oversized | built-in logo |
+| Reduce motion | slower motion, no flicker/strobe/glitch bursts | off |
+| Texts | one per line, block-font rendered, rotate per cycle | built-in logo |
+| Custom art | pasted ASCII art shown as-is | — |
 
-Settings are stored via `ScreenSaverDefaults` (the only prefs mechanism that
-works inside the sandboxed saver host), under the module
-`com.melgeorge.glyphsaver`. Invalid/garbage values are silently replaced with
-defaults — bad config can't crash the saver.
-
-Tip for custom art: generate FIGlet/“ANSI Shadow” text at
-[patorjk.com/software/taag](https://patorjk.com/software/taag/) and paste it in.
+Sheet settings are stored via `ScreenSaverDefaults` under
+`com.melgeorge.glyphsaver`; Studio settings live in
+`~/Library/Application Support/GlyphSaver/config.json` and take precedence.
+Invalid/garbage values are silently replaced with defaults — bad config can't
+crash the saver.
 
 ## Troubleshooting
 

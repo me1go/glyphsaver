@@ -1,0 +1,100 @@
+/// Owns the canvas, cycles enabled effects, and steps the active one with
+/// clamped delta-time. One controller per screen; seed differently per screen
+/// so displays don't animate in lockstep.
+public final class AnimationController {
+    public private(set) var canvas: GlyphCanvas
+    public private(set) var currentEffect: GlyphEffect?
+
+    private var cols: Int
+    private var rows: Int
+    private let config: Config
+    private let theme: Theme
+    private let art: AsciiArt
+    private var effects: [GlyphEffect]
+    private var rng: SeededRandom
+    private var order: [Int] = []
+    private var orderPos = 0
+    private var lastPlayed = -1
+
+    public init(cols: Int, rows: Int, config: Config, seed: UInt64) {
+        let config = config.sanitized
+        self.cols = max(cols, 1)
+        self.rows = max(rows, 1)
+        self.config = config
+        self.theme = config.resolvedTheme
+        self.art = config.resolvedArt
+        self.canvas = GlyphCanvas(cols: self.cols, rows: self.rows)
+        self.rng = SeededRandom(seed: seed)
+        self.effects = config.enabledEffects.compactMap { EffectRegistry.make($0) }
+        if self.effects.isEmpty {
+            self.effects = EffectRegistry.allNames.compactMap { EffectRegistry.make($0) }
+        }
+        advance()
+    }
+
+    public var background: RGBA {
+        theme.background
+    }
+
+    /// Advance the animation. `dt` is wall-clock seconds; clamped so app naps or
+    /// debugger pauses can't produce a giant jump.
+    public func step(dt: Double) {
+        guard let effect = currentEffect else { return }
+        if effect.isComplete {
+            advance()
+        }
+        let clamped = min(max(dt, 0), 0.1) * config.speed
+        currentEffect?.update(dt: clamped, canvas: &canvas)
+    }
+
+    public func skipToNext() {
+        advance()
+    }
+
+    /// Rebuild for a new grid size (window resize / display change).
+    public func resize(cols: Int, rows: Int) {
+        guard cols != self.cols || rows != self.rows else { return }
+        self.cols = max(cols, 1)
+        self.rows = max(rows, 1)
+        canvas = GlyphCanvas(cols: self.cols, rows: self.rows)
+        resetCurrent()
+    }
+
+    private func advance() {
+        guard !effects.isEmpty else { return }
+        if orderPos >= order.count {
+            reshuffle()
+        }
+        let idx = order[orderPos]
+        orderPos += 1
+        lastPlayed = idx
+        currentEffect = effects[idx]
+        resetCurrent()
+    }
+
+    private func reshuffle() {
+        let indices = Array(effects.indices)
+        if config.cycleMode == "sequential" || effects.count == 1 {
+            order = indices
+        } else {
+            order = rng.shuffled(indices)
+            // Avoid replaying the previous effect back-to-back across passes.
+            if order.first == lastPlayed, order.count > 1 {
+                order.swapAt(0, rng.int(in: 1...(order.count - 1)))
+            }
+        }
+        orderPos = 0
+    }
+
+    private func resetCurrent() {
+        let ctx = EffectContext(
+            cols: cols,
+            rows: rows,
+            art: art,
+            theme: theme,
+            seed: rng.next(),
+            reducedMotion: config.reducedMotion
+        )
+        currentEffect?.reset(ctx)
+    }
+}

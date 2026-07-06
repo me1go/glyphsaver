@@ -122,8 +122,10 @@ final class ConfigSheet: NSObject {
         okButton.keyEquivalent = "\r"
         let cancelButton = NSButton(title: "Cancel", target: self, action: #selector(cancel))
         cancelButton.keyEquivalent = "\u{1b}"
-        let buttons = NSStackView(views: [cancelButton, okButton])
+        let buttons = NSStackView()
         buttons.orientation = .horizontal
+        buttons.addView(cancelButton, in: .trailing)
+        buttons.addView(okButton, in: .trailing)
 
         let main = NSStackView(views: [grid, label("Custom art"), artHint, artScroll, buttons])
         main.orientation = .vertical

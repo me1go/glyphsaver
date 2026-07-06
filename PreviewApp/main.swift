@@ -32,6 +32,7 @@ func makeConfig() -> Config {
     if let effect = argValue("--effect") { config.enabledEffects = [effect] }
     if let theme = argValue("--theme") { config.theme = theme }
     if let speed = argValue("--speed").flatMap(Double.init) { config.speed = speed }
+    if let font = argValue("--font").flatMap(Double.init) { config.fontSize = font }
     if args.contains("--reduced-motion") { config.reducedMotion = true }
     return config.sanitized
 }

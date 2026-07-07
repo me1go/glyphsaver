@@ -11,6 +11,20 @@ No Xcode required: builds with the Command Line Tools alone (`swiftc` + `make`).
 Pure Swift + AppKit + ScreenSaver framework — no Python, no WebView, no
 Terminal windows.
 
+## Screenshots
+
+| | |
+|---|---|
+| ![Matrix rain resolved](docs/screenshots/matrix-hold.png) | ![Overflow, ANSI theme](docs/screenshots/overflow-ansi.png) |
+| *matrix — rain resolves into the art* | *overflow — ANSI/BBS color bands* |
+| ![Fireworks, synthwave](docs/screenshots/fireworks-synthwave.png) | ![Colorshift, rainbow](docs/screenshots/colorshift-rainbow.png) |
+| *fireworks revealing custom text* | *colorshift — rainbow gradient wash* |
+| ![Fractal, synthwave](docs/screenshots/fractal-julia.png) | ![Decrypt, Omarchy theme](docs/screenshots/decrypt-omarchy.png) |
+| *fractal — live morphing Julia set* | *decrypt — Omarchy (Tokyo Night) theme* |
+
+![Statusbar with clock](docs/screenshots/statusbar-clock.png)
+*Statusbar chips: effect · theme (left), clock/date/weather (right)*
+
 ## Features
 
 - **All 37 TTE showroom effects plus a live morphing-fractal effect**, cycled randomly or sequentially, each:

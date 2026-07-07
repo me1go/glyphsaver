@@ -99,6 +99,19 @@ func residentMemoryMB() -> Double {
     return Double(info.phys_footprint) / 1_048_576
 }
 
+// MARK: - Image to ASCII mode
+
+if let path = argValue("--img2ascii") {
+    let width = argValue("--width").flatMap(Int.init) ?? 64
+    guard let image = NSImage(contentsOfFile: path),
+          let ascii = ImageToAscii.convert(image: image, targetWidth: width) else {
+        print("could not convert \(path)")
+        exit(1)
+    }
+    print(ascii)
+    exit(0)
+}
+
 // MARK: - Snapshot mode
 
 if let dir = argValue("--snapshot") {

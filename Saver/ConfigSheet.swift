@@ -19,6 +19,12 @@ final class ConfigSheet: NSObject {
     private let fontPopup = NSPopUpButton()
     private let reducedMotionCheck = NSButton(checkboxWithTitle: "Reduce motion",
                                               target: nil, action: nil)
+    private let statuslineCheck = NSButton(checkboxWithTitle: "Show effect · theme label",
+                                           target: nil, action: nil)
+    private let clockCheck = NSButton(checkboxWithTitle: "Show clock & date",
+                                      target: nil, action: nil)
+    private let weatherCheck = NSButton(checkboxWithTitle: "Show weather (wttr.in)",
+                                        target: nil, action: nil)
     private let textsView = NSTextView()
     private let artView = NSTextView()
 
@@ -156,6 +162,9 @@ final class ConfigSheet: NSObject {
             [label("Frame rate"), fpsPopup],
             [label("Font size"), fontPopup],
             [NSGridCell.emptyContentView, reducedMotionCheck],
+            [NSGridCell.emptyContentView, statuslineCheck],
+            [NSGridCell.emptyContentView, clockCheck],
+            [NSGridCell.emptyContentView, weatherCheck],
         ])
         grid.rowSpacing = 8
         grid.column(at: 0).xPlacement = .trailing
@@ -221,6 +230,9 @@ final class ConfigSheet: NSObject {
         let fontIndex = ConfigSheet.fontOptions.firstIndex { $0.1 == config.fontSize } ?? 0
         fontPopup.selectItem(at: fontIndex)
         reducedMotionCheck.state = config.reducedMotion ? .on : .off
+        statuslineCheck.state = config.showStatusline ? .on : .off
+        clockCheck.state = config.showClock ? .on : .off
+        weatherCheck.state = config.showWeather ? .on : .off
         textsView.string = config.artTexts.joined(separator: "\n")
         artView.string = config.customArt
         speedChanged()
@@ -250,6 +262,9 @@ final class ConfigSheet: NSObject {
         config.fps = fpsPopup.selectedItem?.representedObject as? Double ?? 60
         config.fontSize = fontPopup.selectedItem?.representedObject as? Double ?? 0
         config.reducedMotion = reducedMotionCheck.state == .on
+        config.showStatusline = statuslineCheck.state == .on
+        config.showClock = clockCheck.state == .on
+        config.showWeather = weatherCheck.state == .on
         config.artTexts = textsView.string
             .split(separator: "\n").map(String.init)
             .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }

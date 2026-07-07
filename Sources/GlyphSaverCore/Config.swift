@@ -20,6 +20,12 @@ public struct Config: Codable, Equatable {
     /// "random" or "sequential".
     public var cycleMode: String
     public var reducedMotion: Bool
+    /// Corner label showing "effect · theme" (hidden in tiny previews).
+    public var showStatusline: Bool
+    /// Corner clock with date, bottom-right.
+    public var showClock: Bool
+    /// Weather next to the clock (wttr.in, fetched at most every 15 min).
+    public var showWeather: Bool
 
     public static let `default` = Config(
         artTexts: [],
@@ -31,12 +37,17 @@ public struct Config: Codable, Equatable {
         speed: 1.0,
         fontSize: 0,
         cycleMode: "random",
-        reducedMotion: false
+        reducedMotion: false,
+        showStatusline: true,
+        showClock: true,
+        showWeather: false
     )
 
     public init(artTexts: [String], customArt: String, enabledEffects: [String],
                 theme: String, themes: [String], fps: Double, speed: Double,
-                fontSize: Double, cycleMode: String, reducedMotion: Bool) {
+                fontSize: Double, cycleMode: String, reducedMotion: Bool,
+                showStatusline: Bool = true, showClock: Bool = true,
+                showWeather: Bool = false) {
         self.artTexts = artTexts
         self.customArt = customArt
         self.enabledEffects = enabledEffects
@@ -47,6 +58,9 @@ public struct Config: Codable, Equatable {
         self.fontSize = fontSize
         self.cycleMode = cycleMode
         self.reducedMotion = reducedMotion
+        self.showStatusline = showStatusline
+        self.showClock = showClock
+        self.showWeather = showWeather
     }
 
     // Tolerate config.json files written before artTexts existed.
@@ -63,6 +77,9 @@ public struct Config: Codable, Equatable {
         fontSize = (try? c.decode(Double.self, forKey: .fontSize)) ?? d.fontSize
         cycleMode = (try? c.decode(String.self, forKey: .cycleMode)) ?? d.cycleMode
         reducedMotion = (try? c.decode(Bool.self, forKey: .reducedMotion)) ?? d.reducedMotion
+        showStatusline = (try? c.decode(Bool.self, forKey: .showStatusline)) ?? d.showStatusline
+        showClock = (try? c.decode(Bool.self, forKey: .showClock)) ?? d.showClock
+        showWeather = (try? c.decode(Bool.self, forKey: .showWeather)) ?? d.showWeather
     }
 
     /// Clamped/validated copy safe to hand to the animation pipeline.
@@ -126,6 +143,9 @@ public struct Config: Codable, Equatable {
         if let v = dict["fontSize"] as? Double { c.fontSize = v }
         if let v = dict["cycleMode"] as? String { c.cycleMode = v }
         if let v = dict["reducedMotion"] as? Bool { c.reducedMotion = v }
+        if let v = dict["showStatusline"] as? Bool { c.showStatusline = v }
+        if let v = dict["showClock"] as? Bool { c.showClock = v }
+        if let v = dict["showWeather"] as? Bool { c.showWeather = v }
         return c.sanitized
     }
 
@@ -141,6 +161,9 @@ public struct Config: Codable, Equatable {
             "fontSize": fontSize,
             "cycleMode": cycleMode,
             "reducedMotion": reducedMotion,
+            "showStatusline": showStatusline,
+            "showClock": showClock,
+            "showWeather": showWeather,
         ]
     }
 }

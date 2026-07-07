@@ -30,6 +30,10 @@ Terminal windows.
   texts rotate between effect cycles. Raw multi-line ASCII art also supported.
 - **GlyphSaver Studio** — a companion Mac app with a live preview and all
   settings; one click pushes the config straight to the screensaver.
+- **Statusbar chips**: effect · theme bottom-left; clock, date, and optional
+  weather (wttr.in, cached 15 min) bottom-right — each toggleable.
+- **Logo import**: Studio converts any image to block art (background detected
+  from the border, half-block edges) — your logo becomes the screensaver.
 - Multi-monitor: one independently-seeded animation per display
 - 60 fps default (30/120 configurable), speed 0.25–4×, reduced-motion mode
 - Renders ~28,000 cells at 4K in under 1 ms/frame (batched CoreText)

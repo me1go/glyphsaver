@@ -101,6 +101,10 @@ public final class GlyphSaverContentView: NSView {
         controller?.currentEffect?.name ?? "-"
     }
 
+    public var currentThemeId: String {
+        controller?.currentThemeId ?? "-"
+    }
+
     // MARK: - Drawing
 
     public override func draw(_ dirtyRect: NSRect) {
@@ -112,5 +116,71 @@ public final class GlyphSaverContentView: NSView {
         }
         renderer.draw(canvas: controller.canvas, background: controller.background,
                       in: ctx, size: bounds.size)
+        guard bounds.width >= 500 else { return }  // skip in tiny previews
+        if config.showStatusline {
+            drawChip(makeMono("\(controller.currentEffect?.name ?? "-") · "
+                              + controller.currentThemeId, size: 12),
+                     corner: .left)
+        }
+        if config.showClock {
+            if config.showWeather {
+                WeatherProvider.shared.refreshIfStale()
+            }
+            drawChip(clockString(), corner: .right)
+        }
+    }
+
+    private static let timeFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.timeStyle = .short   // honors the user's 12/24-hour setting
+        f.dateStyle = .none
+        return f
+    }()
+
+    private static let dateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.setLocalizedDateFormatFromTemplate("EEE d MMM")
+        return f
+    }()
+
+    private func makeMono(_ text: String, size: CGFloat,
+                          alpha: CGFloat = 0.62) -> NSAttributedString {
+        NSAttributedString(string: text, attributes: [
+            .font: NSFont(name: "Menlo", size: size)
+                ?? .monospacedSystemFont(ofSize: size, weight: .regular),
+            .foregroundColor: NSColor.white.withAlphaComponent(alpha),
+        ])
+    }
+
+    /// "⛅️ 23°C · 14:32 · Tue 8 Jul" with the time slightly louder.
+    private func clockString() -> NSAttributedString {
+        let now = Date()
+        let out = NSMutableAttributedString()
+        if config.showWeather, let weather = WeatherProvider.shared.summary {
+            out.append(makeMono("\(weather) · ", size: 12))
+        }
+        out.append(makeMono(GlyphSaverContentView.timeFormatter.string(from: now),
+                            size: 14, alpha: 0.85))
+        out.append(makeMono(" · " + GlyphSaverContentView.dateFormatter.string(from: now),
+                            size: 12))
+        return out
+    }
+
+    private enum ChipCorner { case left, right }
+
+    /// Terminal-statusbar chip pinned to a bottom corner.
+    private func drawChip(_ string: NSAttributedString, corner: ChipCorner) {
+        let size = string.size()
+        let pad = CGSize(width: 10, height: 5)
+        let width = size.width + pad.width * 2
+        let x = corner == .left ? 18 : bounds.width - 18 - width
+        let chip = NSRect(x: x, y: 16, width: width, height: size.height + pad.height * 2)
+        let path = NSBezierPath(roundedRect: chip, xRadius: 7, yRadius: 7)
+        NSColor.black.withAlphaComponent(0.45).setFill()
+        path.fill()
+        NSColor.white.withAlphaComponent(0.09).setStroke()
+        path.lineWidth = 1
+        path.stroke()
+        string.draw(at: NSPoint(x: chip.minX + pad.width, y: chip.minY + pad.height))
     }
 }

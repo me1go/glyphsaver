@@ -8,7 +8,8 @@ public final class AnimationController {
     private var cols: Int
     private var rows: Int
     private let config: Config
-    private let theme: Theme
+    private let themes: [Theme]
+    private var themeIndex = 0
     private let arts: [AsciiArt]
     private var artIndex = 0
     private var effects: [GlyphEffect]
@@ -22,7 +23,7 @@ public final class AnimationController {
         self.cols = max(cols, 1)
         self.rows = max(rows, 1)
         self.config = config
-        self.theme = config.resolvedTheme
+        self.themes = config.resolvedThemes
         self.arts = config.resolvedArts
         self.canvas = GlyphCanvas(cols: self.cols, rows: self.rows)
         self.rng = SeededRandom(seed: seed)
@@ -34,7 +35,11 @@ public final class AnimationController {
     }
 
     public var background: RGBA {
-        theme.background
+        themes[themeIndex].background
+    }
+
+    public var currentThemeId: String {
+        themes[themeIndex].id
     }
 
     /// Advance the animation. `dt` is wall-clock seconds; clamped so app naps or
@@ -71,7 +76,22 @@ public final class AnimationController {
         lastPlayed = idx
         currentEffect = effects[idx]
         advanceArt()
+        advanceTheme()
         resetCurrent()
+    }
+
+    /// Rotate the palette each cycle when several themes are enabled.
+    private func advanceTheme() {
+        guard themes.count > 1 else { return }
+        if config.cycleMode == "sequential" {
+            themeIndex = (themeIndex + 1) % themes.count
+        } else {
+            var next = rng.int(in: 0...(themes.count - 1))
+            if next == themeIndex {
+                next = (next + 1) % themes.count
+            }
+            themeIndex = next
+        }
     }
 
     /// Rotate to another art piece each cycle (random avoids showing the same
@@ -108,7 +128,7 @@ public final class AnimationController {
             cols: cols,
             rows: rows,
             art: arts[artIndex],
-            theme: theme,
+            theme: themes[themeIndex],
             seed: rng.next(),
             reducedMotion: config.reducedMotion
         )

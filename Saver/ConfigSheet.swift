@@ -9,7 +9,7 @@ final class ConfigSheet: NSObject {
     let window: NSPanel
     private let defaults: UserDefaults?
 
-    private let themePopup = NSPopUpButton()
+    private var themeChecks: [String: NSButton] = [:]
     private var effectChecks: [String: NSButton] = [:]
     private let cyclePopup = NSPopUpButton()
     private let speedSlider = NSSlider(value: 1, minValue: 0.25, maxValue: 4,
@@ -71,12 +71,25 @@ final class ConfigSheet: NSObject {
             return l
         }
 
+        // Multi-select themes: checked palettes rotate between effect cycles.
+        var themeRows: [[NSView]] = []
+        var themeRow: [NSView] = []
         for theme in Theme.all {
-            themePopup.addItem(withTitle: theme.displayName)
-            themePopup.lastItem?.representedObject = theme.id
+            let check = NSButton(checkboxWithTitle: theme.displayName, target: nil, action: nil)
+            check.font = .systemFont(ofSize: 11)
+            themeChecks[theme.id] = check
+            themeRow.append(check)
+            if themeRow.count == 3 {
+                themeRows.append(themeRow)
+                themeRow = []
+            }
         }
+        if !themeRow.isEmpty { themeRows.append(themeRow) }
+        let themesGrid = NSGridView(views: themeRows)
+        themesGrid.rowSpacing = 3
+        themesGrid.columnSpacing = 8
 
-        // 37 effects → grid of checkboxes, 4 per row.
+        // Effects → grid of checkboxes, 4 per row.
         var effectRows: [[NSView]] = []
         var row: [NSView] = []
         for name in EffectRegistry.allNames {
@@ -137,7 +150,7 @@ final class ConfigSheet: NSObject {
         speedRow.orientation = .horizontal
 
         let grid = NSGridView(views: [
-            [label("Theme"), themePopup],
+            [label("Themes"), themesGrid],
             [label("Cycle"), cyclePopup],
             [label("Speed"), speedRow],
             [label("Frame rate"), fpsPopup],
@@ -195,7 +208,10 @@ final class ConfigSheet: NSObject {
 
     private func loadValues() {
         let config = defaults.map(ConfigStore.load(from:)) ?? .default
-        themePopup.selectItem(at: Theme.all.firstIndex { $0.id == config.theme } ?? 0)
+        let activeThemes = config.themes.isEmpty ? [config.theme] : config.themes
+        for (id, check) in themeChecks {
+            check.state = activeThemes.contains(id) ? .on : .off
+        }
         for (name, check) in effectChecks {
             check.state = config.enabledEffects.contains(name) ? .on : .off
         }
@@ -224,7 +240,8 @@ final class ConfigSheet: NSObject {
 
     @objc private func save() {
         var config = Config.default
-        config.theme = themePopup.selectedItem?.representedObject as? String ?? config.theme
+        config.themes = Theme.all.map(\.id).filter { themeChecks[$0]?.state == .on }
+        config.theme = config.themes.first ?? Config.default.theme
         config.enabledEffects = effectChecks.compactMap { name, check in
             check.state == .on ? name : nil
         }.sorted()

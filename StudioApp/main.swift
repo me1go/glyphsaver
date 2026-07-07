@@ -14,7 +14,7 @@ final class StudioController: NSObject, NSApplicationDelegate, NSTextViewDelegat
 
     let textsView = NSTextView()
     let artView = NSTextView()
-    let themePopup = NSPopUpButton()
+    var themeChecks: [String: NSButton] = [:]
     var effectChecks: [String: NSButton] = [:]
     let cyclePopup = NSPopUpButton()
     let speedSlider = NSSlider(value: 1, minValue: 0.25, maxValue: 4, target: nil, action: nil)
@@ -40,7 +40,9 @@ final class StudioController: NSObject, NSApplicationDelegate, NSTextViewDelegat
             .split(separator: "\n").map(String.init)
             .filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
         config.customArt = artView.string
-        config.theme = themePopup.selectedItem?.representedObject as? String ?? "omarchy"
+        // Preserve Theme.all order so sequential cycling is predictable.
+        config.themes = Theme.all.map(\.id).filter { themeChecks[$0]?.state == .on }
+        config.theme = config.themes.first ?? "omarchy"
         config.enabledEffects = effectChecks
             .compactMap { name, check in check.state == .on ? name : nil }
             .sorted()
@@ -55,7 +57,10 @@ final class StudioController: NSObject, NSApplicationDelegate, NSTextViewDelegat
     func populate(from config: Config) {
         textsView.string = config.artTexts.joined(separator: "\n")
         artView.string = config.customArt
-        themePopup.selectItem(at: Theme.all.firstIndex { $0.id == config.theme } ?? 0)
+        let activeThemes = config.themes.isEmpty ? [config.theme] : config.themes
+        for (id, check) in themeChecks {
+            check.state = activeThemes.contains(id) ? .on : .off
+        }
         for (name, check) in effectChecks {
             check.state = config.enabledEffects.contains(name) ? .on : .off
         }
@@ -150,13 +155,25 @@ final class StudioController: NSObject, NSApplicationDelegate, NSTextViewDelegat
         previewContainer.wantsLayer = true
         previewContainer.layer?.backgroundColor = NSColor.black.cgColor
 
-        // Controls column.
+        // Controls column. Themes are multi-select: checked themes rotate
+        // between effect cycles.
+        var themeRows: [[NSView]] = []
+        var themeRow: [NSView] = []
         for theme in Theme.all {
-            themePopup.addItem(withTitle: theme.displayName)
-            themePopup.lastItem?.representedObject = theme.id
+            let check = NSButton(checkboxWithTitle: theme.displayName, target: self,
+                                 action: #selector(controlChanged))
+            check.font = .systemFont(ofSize: 11)
+            themeChecks[theme.id] = check
+            themeRow.append(check)
+            if themeRow.count == 3 {
+                themeRows.append(themeRow)
+                themeRow = []
+            }
         }
-        themePopup.target = self
-        themePopup.action = #selector(controlChanged)
+        if !themeRow.isEmpty { themeRows.append(themeRow) }
+        let themesGrid = NSGridView(views: themeRows)
+        themesGrid.rowSpacing = 2
+        themesGrid.columnSpacing = 6
 
         cyclePopup.addItem(withTitle: "Random order")
         cyclePopup.lastItem?.representedObject = "random"
@@ -228,7 +245,6 @@ final class StudioController: NSObject, NSApplicationDelegate, NSTextViewDelegat
         speedRow.orientation = .horizontal
 
         let settingsGrid = NSGridView(views: [
-            [sectionLabel("Theme"), themePopup],
             [sectionLabel("Cycle"), cyclePopup],
             [sectionLabel("Speed"), speedRow],
             [sectionLabel("Frame rate"), fpsPopup],
@@ -253,9 +269,15 @@ final class StudioController: NSObject, NSApplicationDelegate, NSTextViewDelegat
         statusLabel.font = .systemFont(ofSize: 11)
         statusLabel.textColor = .secondaryLabelColor
 
+        let themesHint = NSTextField(wrappingLabelWithString:
+            "Check several — the palette rotates between effect cycles.")
+        themesHint.font = .systemFont(ofSize: 10)
+        themesHint.textColor = .secondaryLabelColor
+
         let controls = NSStackView(views: [
             sectionLabel("Texts"), textsHint, textsScroll,
             sectionLabel("Custom art"), artHint, artScroll,
+            sectionLabel("Themes"), themesHint, themesGrid,
             settingsGrid,
             sectionLabel("Effects"), effectButtons, effectsGrid,
             nextButton,

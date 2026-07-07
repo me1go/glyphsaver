@@ -361,6 +361,40 @@ test("Controller resize rebuilds canvas") {
     expect(true, "steps after resize")
 }
 
+test("Config themes list sanitizes and resolves") {
+    var c = Config.default
+    c.themes = ["hotdog", "rainbow", "synthwave", "rainbow"]
+    let s = c.sanitized
+    expectEqual(s.themes, ["rainbow", "synthwave"], "unknown dropped, duplicates deduped")
+    expectEqual(s.resolvedThemes.map(\.id), ["rainbow", "synthwave"], "list resolves")
+    c.themes = []
+    c.theme = "amber"
+    expectEqual(c.resolvedThemes.map(\.id), ["amber"], "empty list falls back to theme")
+}
+
+test("Controller rotates themes between effect cycles") {
+    var config = Config.default
+    config.themes = ["matrix", "amber", "synthwave"]
+    config.speed = 4
+    let controller = AnimationController(cols: 60, rows: 20, config: config, seed: 21)
+    var seen: Set<String> = [controller.currentThemeId]
+    var lastEffect = controller.currentEffect?.name ?? ""
+    var lastTheme = controller.currentThemeId
+    var t = 0.0
+    while t < 180 && seen.count < 3 {
+        controller.step(dt: simDT)
+        t += simDT
+        if let now = controller.currentEffect?.name, now != lastEffect {
+            lastEffect = now
+            expect(controller.currentThemeId != lastTheme,
+                   "theme changed with the cycle (random mode, >1 theme)")
+            lastTheme = controller.currentThemeId
+            seen.insert(lastTheme)
+        }
+    }
+    expect(seen.count >= 2, "several themes appeared, got \(seen)")
+}
+
 test("Controller sequential mode preserves order") {
     var config = Config.default
     config.cycleMode = "sequential"

@@ -9,7 +9,10 @@ public struct Config: Codable, Equatable {
     /// Ready-made multi-line ASCII art, shown as-is (optional extra entry).
     public var customArt: String
     public var enabledEffects: [String]
+    /// Single theme (kept for backward compatibility; used when `themes` is empty).
     public var theme: String
+    /// Themes to rotate between effect cycles; empty means just `theme`.
+    public var themes: [String]
     public var fps: Double
     public var speed: Double
     /// Font size in points; 0 means auto-fit to the art and screen.
@@ -23,6 +26,7 @@ public struct Config: Codable, Equatable {
         customArt: "",
         enabledEffects: EffectRegistry.allNames,
         theme: "omarchy",
+        themes: [],
         fps: 60,
         speed: 1.0,
         fontSize: 0,
@@ -31,12 +35,13 @@ public struct Config: Codable, Equatable {
     )
 
     public init(artTexts: [String], customArt: String, enabledEffects: [String],
-                theme: String, fps: Double, speed: Double, fontSize: Double,
-                cycleMode: String, reducedMotion: Bool) {
+                theme: String, themes: [String], fps: Double, speed: Double,
+                fontSize: Double, cycleMode: String, reducedMotion: Bool) {
         self.artTexts = artTexts
         self.customArt = customArt
         self.enabledEffects = enabledEffects
         self.theme = theme
+        self.themes = themes
         self.fps = fps
         self.speed = speed
         self.fontSize = fontSize
@@ -52,6 +57,7 @@ public struct Config: Codable, Equatable {
         customArt = (try? c.decode(String.self, forKey: .customArt)) ?? d.customArt
         enabledEffects = (try? c.decode([String].self, forKey: .enabledEffects)) ?? d.enabledEffects
         theme = (try? c.decode(String.self, forKey: .theme)) ?? d.theme
+        themes = (try? c.decode([String].self, forKey: .themes)) ?? d.themes
         fps = (try? c.decode(Double.self, forKey: .fps)) ?? d.fps
         speed = (try? c.decode(Double.self, forKey: .speed)) ?? d.speed
         fontSize = (try? c.decode(Double.self, forKey: .fontSize)) ?? d.fontSize
@@ -70,6 +76,8 @@ public struct Config: Codable, Equatable {
         c.enabledEffects = c.enabledEffects.filter { EffectRegistry.allNames.contains($0) }
         if c.enabledEffects.isEmpty { c.enabledEffects = EffectRegistry.allNames }
         if Theme.named(c.theme) == nil { c.theme = Config.default.theme }
+        var seenThemes = Set<String>()
+        c.themes = c.themes.filter { Theme.named($0) != nil && seenThemes.insert($0).inserted }
         c.fps = c.fps.isFinite ? min(max(c.fps, 15), 120) : Config.default.fps
         c.speed = c.speed.isFinite ? min(max(c.speed, 0.25), 4) : Config.default.speed
         if !c.fontSize.isFinite || c.fontSize < 0 { c.fontSize = 0 }
@@ -80,6 +88,12 @@ public struct Config: Codable, Equatable {
 
     public var resolvedTheme: Theme {
         Theme.named(theme) ?? .omarchy
+    }
+
+    /// Themes to rotate through; falls back to the single `theme`.
+    public var resolvedThemes: [Theme] {
+        let list = themes.compactMap { Theme.named($0) }
+        return list.isEmpty ? [resolvedTheme] : list
     }
 
     /// All art pieces to rotate through: each text via the block font (or a
@@ -106,6 +120,7 @@ public struct Config: Codable, Equatable {
         if let v = dict["customArt"] as? String { c.customArt = v }
         if let v = dict["enabledEffects"] as? [String] { c.enabledEffects = v }
         if let v = dict["theme"] as? String { c.theme = v }
+        if let v = dict["themes"] as? [String] { c.themes = v }
         if let v = dict["fps"] as? Double { c.fps = v }
         if let v = dict["speed"] as? Double { c.speed = v }
         if let v = dict["fontSize"] as? Double { c.fontSize = v }
@@ -120,6 +135,7 @@ public struct Config: Codable, Equatable {
             "customArt": customArt,
             "enabledEffects": enabledEffects,
             "theme": theme,
+            "themes": themes,
             "fps": fps,
             "speed": speed,
             "fontSize": fontSize,

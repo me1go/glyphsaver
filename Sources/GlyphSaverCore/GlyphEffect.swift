@@ -49,15 +49,16 @@ public protocol GlyphEffect: AnyObject {
 }
 
 public enum EffectRegistry {
-    /// The full TerminalTextEffects showroom, by TTE's names.
+    /// The full TerminalTextEffects showroom (by TTE's names), plus our own
+    /// "fractal" — a live morphing Julia set that resolves into the art.
     public static let allNames = [
         "beams", "binarypath", "blackhole", "bouncyballs", "bubbles", "burn",
         "colorshift", "crumble", "decrypt", "errorcorrect", "expand", "fireworks",
-        "highlight", "laseretch", "matrix", "middleout", "orbittingvolley",
-        "overflow", "pour", "print", "rain", "randomsequence", "rings",
-        "scattered", "slice", "slide", "smoke", "spotlights", "spray", "swarm",
-        "sweep", "synthgrid", "thunderstorm", "unstable", "vhstape", "waves",
-        "wipe",
+        "fractal", "highlight", "laseretch", "matrix", "middleout",
+        "orbittingvolley", "overflow", "pour", "print", "rain", "randomsequence",
+        "rings", "scattered", "slice", "slide", "smoke", "spotlights", "spray",
+        "swarm", "sweep", "synthgrid", "thunderstorm", "unstable", "vhstape",
+        "waves", "wipe",
     ]
 
     public static func make(_ name: String) -> GlyphEffect? {
@@ -74,6 +75,7 @@ public enum EffectRegistry {
         case "errorcorrect": return ErrorCorrectEffect()
         case "expand": return ExpandEffect()
         case "fireworks": return FireworksEffect()
+        case "fractal": return FractalEffect()
         case "highlight": return HighlightEffect()
         case "laseretch": return LaserEtchEffect()
         case "matrix": return MatrixRainEffect()

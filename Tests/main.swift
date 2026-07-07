@@ -169,6 +169,39 @@ test("BlockFont substitutes ? for unknown chars") {
     expectEqual(art.height, 6, "unknown char doesn't break rendering")
 }
 
+// MARK: - FractalArt
+
+test("Fractal specs render as art") {
+    for name in FractalArt.names {
+        guard let art = FractalArt.render("fractal:\(name)") else {
+            expect(false, "fractal:\(name) renders")
+            continue
+        }
+        expect(art.width > 20 && art.height > 10, "fractal:\(name) has substance")
+    }
+    expect(FractalArt.render("plain text") == nil, "non-fractal spec returns nil")
+    expect(FractalArt.render("fractal:unknown") != nil, "unknown fractal falls back")
+}
+
+test("Mandelbrot art contains interior and gradient chars") {
+    guard let art = FractalArt.render("fractal:mandelbrot") else {
+        expect(false, "mandelbrot renders")
+        return
+    }
+    let scalars = Set(art.lines.flatMap { $0 })
+    expect(scalars.contains("█"), "interior cells solid")
+    expect(scalars.count > 5, "several density levels present")
+}
+
+test("Config resolves fractal art texts") {
+    var c = Config.default
+    c.artTexts = ["fractal:sierpinski", "LEAP CRM"]
+    let arts = c.resolvedArts
+    expectEqual(arts.count, 2, "both entries resolve")
+    expect(arts[0].height > 20, "sierpinski is tall, got \(arts[0].height)")
+    expectEqual(arts[1].height, 6, "plain text still block font")
+}
+
 // MARK: - Config
 
 test("Config sanitized clamps garbage") {

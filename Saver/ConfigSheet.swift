@@ -124,7 +124,8 @@ final class ConfigSheet: NSObject {
         let artScroll = makeMonoTextArea(height: 110, view: artView)
 
         let textsHint = NSTextField(wrappingLabelWithString:
-            "One text per line — each renders as big block letters and they rotate between effects.")
+            "One text per line — each renders as big block letters and they rotate between "
+            + "effects. Special: fractal:mandelbrot, fractal:julia, fractal:sierpinski.")
         textsHint.font = .systemFont(ofSize: 11)
         textsHint.textColor = .secondaryLabelColor
         let artHint = NSTextField(wrappingLabelWithString:

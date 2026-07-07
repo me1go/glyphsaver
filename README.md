@@ -13,18 +13,20 @@ Terminal windows.
 
 ## Features
 
-- **All 37 TTE showroom effects**, cycled randomly or sequentially, each:
+- **All 37 TTE showroom effects plus a live morphing-fractal effect**, cycled randomly or sequentially, each:
   reveal → hold → fade. beams, binarypath, blackhole, bouncyballs, bubbles,
   burn, colorshift, crumble, decrypt, errorcorrect, expand, fireworks,
   highlight, laseretch, matrix, middleout, orbittingvolley, overflow, pour,
   print, rain, randomsequence, rings, scattered, slice, slide, smoke,
   spotlights, spray, swarm, sweep, synthgrid, thunderstorm, unstable, vhstape,
-  waves, wipe.
+  waves, wipe — plus `fractal` (an animated Julia set that folds and unfolds, then dissolves into your text).
 - **6 themes**: Omarchy (Tokyo Night blues), Matrix Green, Amber CRT, ANSI/BBS,
   Synthwave (magenta→cyan→white gradient), Rainbow (drifting hue cycle). Most
   themes color the art with a gradient across its bounding box, TTE-style.
 - **Your text as block art**: type plain texts ("LEAP CRM", "me1g0") and they
-  render through a built-in ANSI-Shadow block font — no FIGlet needed. Multiple
+  render through a built-in ANSI-Shadow block font — no FIGlet needed. Special
+  entries `fractal:mandelbrot`, `fractal:julia`, `fractal:sierpinski` generate
+  fractal block art instead. Multiple
   texts rotate between effect cycles. Raw multi-line ASCII art also supported.
 - **GlyphSaver Studio** — a companion Mac app with a live preview and all
   settings; one click pushes the config straight to the screensaver.

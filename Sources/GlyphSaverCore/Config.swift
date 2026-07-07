@@ -82,10 +82,11 @@ public struct Config: Codable, Equatable {
         Theme.named(theme) ?? .omarchy
     }
 
-    /// All art pieces to rotate through: each text via the block font, plus the
-    /// raw custom art if present. Empty config falls back to the built-in logo.
+    /// All art pieces to rotate through: each text via the block font (or a
+    /// fractal generator for "fractal:<name>" entries), plus the raw custom art
+    /// if present. Empty config falls back to the built-in logo.
     public var resolvedArts: [AsciiArt] {
-        var arts = sanitized.artTexts.map { BlockFont.render($0) }
+        var arts = sanitized.artTexts.map { FractalArt.render($0) ?? BlockFont.render($0) }
         let trimmed = customArt.trimmingCharacters(in: .whitespacesAndNewlines)
         if !trimmed.isEmpty {
             arts.append(AsciiArt(text: customArt))

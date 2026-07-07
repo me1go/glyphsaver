@@ -215,7 +215,8 @@ final class StudioController: NSObject, NSApplicationDelegate, NSTextViewDelegat
         let artScroll = makeTextArea(artView, height: 100)
 
         let textsHint = NSTextField(wrappingLabelWithString:
-            "One per line — each renders as big block letters; entries rotate between effects.")
+            "One per line — each renders as big block letters; entries rotate between effects. "
+            + "Special: fractal:mandelbrot, fractal:julia, fractal:sierpinski.")
         textsHint.font = .systemFont(ofSize: 10)
         textsHint.textColor = .secondaryLabelColor
         let artHint = NSTextField(wrappingLabelWithString:

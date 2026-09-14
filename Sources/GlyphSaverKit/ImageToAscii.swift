@@ -67,11 +67,16 @@ public enum ImageToAscii {
         let modePixels = borderPixels.filter {
             (UInt32($0.r * 15) << 8 | UInt32($0.g * 15) << 4 | UInt32($0.b * 15)) == modeKey
         }
-        let bg = modePixels.isEmpty
-            ? (r: 0.0, g: 0.0, b: 0.0)
-            : (r: modePixels.map(\.r).reduce(0, +) / Double(modePixels.count),
-               g: modePixels.map(\.g).reduce(0, +) / Double(modePixels.count),
-               b: modePixels.map(\.b).reduce(0, +) / Double(modePixels.count))
+        let bg: (r: Double, g: Double, b: Double)
+        if modePixels.isEmpty {
+            bg = (r: 0.0, g: 0.0, b: 0.0)
+        } else {
+            let count = Double(modePixels.count)
+            let sumR: Double = modePixels.map(\.r).reduce(0, +)
+            let sumG: Double = modePixels.map(\.g).reduce(0, +)
+            let sumB: Double = modePixels.map(\.b).reduce(0, +)
+            bg = (r: sumR / count, g: sumG / count, b: sumB / count)
+        }
 
         func isForeground(_ x: Int, _ y: Int) -> Bool {
             let p = pixel(x, y)

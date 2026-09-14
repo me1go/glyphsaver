@@ -12,6 +12,22 @@ public final class GlyphSaverContentView: NSView {
     private var timer: Timer?
     private var lastTick: CFTimeInterval = 0
 
+    private struct Chip {
+        let text: NSAttributedString
+        let size: CGSize
+
+        init(_ text: NSAttributedString) {
+            self.text = text
+            self.size = text.size()
+        }
+    }
+
+    private var statusKey = ""
+    private var statusChip: Chip?
+    private var clockSecond: Double?
+    private var clockWeather: String?
+    private var clockChip: Chip?
+
     public init(frame: NSRect, config: Config, seed: UInt64) {
         self.config = config.sanitized
         self.seed = seed
@@ -118,15 +134,26 @@ public final class GlyphSaverContentView: NSView {
                       in: ctx, size: bounds.size)
         guard bounds.width >= 500 else { return }  // skip in tiny previews
         if config.showStatusline {
-            drawChip(makeMono("\(controller.currentEffect?.name ?? "-") · "
-                              + controller.currentThemeId, size: 12),
-                     corner: .left)
+            let key = "\(controller.currentEffect?.name ?? "-") · " + controller.currentThemeId
+            if statusChip == nil || statusKey != key {
+                statusKey = key
+                statusChip = Chip(makeMono(key, size: 12))
+            }
+            if let statusChip { drawChip(statusChip, corner: .left) }
         }
         if config.showClock {
             if config.showWeather {
                 WeatherProvider.shared.refreshIfStale()
             }
-            drawChip(clockString(), corner: .right)
+            let now = Date()
+            let second = now.timeIntervalSinceReferenceDate.rounded(.down)
+            let weather = config.showWeather ? WeatherProvider.shared.summary : nil
+            if clockChip == nil || clockSecond != second || clockWeather != weather {
+                clockSecond = second
+                clockWeather = weather
+                clockChip = Chip(clockString(at: now, weather: weather))
+            }
+            if let clockChip { drawChip(clockChip, corner: .right) }
         }
     }
 
@@ -153,10 +180,9 @@ public final class GlyphSaverContentView: NSView {
     }
 
     /// "⛅️ 23°C · 14:32 · Tue 8 Jul" with the time slightly louder.
-    private func clockString() -> NSAttributedString {
-        let now = Date()
+    private func clockString(at now: Date, weather: String?) -> NSAttributedString {
         let out = NSMutableAttributedString()
-        if config.showWeather, let weather = WeatherProvider.shared.summary {
+        if let weather {
             out.append(makeMono("\(weather) · ", size: 12))
         }
         out.append(makeMono(GlyphSaverContentView.timeFormatter.string(from: now),
@@ -169,8 +195,8 @@ public final class GlyphSaverContentView: NSView {
     private enum ChipCorner { case left, right }
 
     /// Terminal-statusbar chip pinned to a bottom corner.
-    private func drawChip(_ string: NSAttributedString, corner: ChipCorner) {
-        let size = string.size()
+    private func drawChip(_ content: Chip, corner: ChipCorner) {
+        let size = content.size
         let pad = CGSize(width: 10, height: 5)
         let width = size.width + pad.width * 2
         let x = corner == .left ? 18 : bounds.width - 18 - width
@@ -181,6 +207,6 @@ public final class GlyphSaverContentView: NSView {
         NSColor.white.withAlphaComponent(0.09).setStroke()
         path.lineWidth = 1
         path.stroke()
-        string.draw(at: NSPoint(x: chip.minX + pad.width, y: chip.minY + pad.height))
+        content.text.draw(at: NSPoint(x: chip.minX + pad.width, y: chip.minY + pad.height))
     }
 }

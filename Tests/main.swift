@@ -1,4 +1,6 @@
 import Foundation
+import AppKit
+import GlyphSaverKit
 import GlyphSaverCore
 
 // Minimal test harness: CLT installs ship no XCTest/Swift Testing, so this is a
@@ -95,6 +97,64 @@ test("Canvas fadeAll moves colors toward target") {
     c.put(GlyphCell("A", fg: .white), x: 0, y: 0)
     c.fadeAll(toward: .black, t: 1)
     expectEqual(c.at(x: 0, y: 0)?.fg, .black, "full fade reaches target")
+}
+
+test("Art colors preserve static and animated gradient sampling") {
+    for theme in Theme.all {
+        let ctx = makeContext(art: AsciiArt(text: "ABC\nDEF"), theme: theme)
+        let minX = ctx.artCells.map(\.x).min()!
+        let minY = ctx.artCells.map(\.y).min()!
+        let maxX = ctx.artCells.map(\.x).max()!
+        let maxY = ctx.artCells.map(\.y).max()!
+        let span = Float(max(maxX - minX + maxY - minY, 1))
+        for elapsed in [0.0, 3.5, 60.0] {
+            for (index, cell) in ctx.artCells.enumerated() {
+                let t = Float(cell.x - minX + cell.y - minY) / span
+                let expected = theme.artGradient.count > 1
+                    ? theme.artGradientColor(t + Float(elapsed) * theme.gradientSpeed)
+                    : theme.art
+                expectEqual(ctx.artColor(index, elapsed: elapsed), expected,
+                            "gradient sample for \(theme.id)")
+            }
+        }
+        expectEqual(ctx.artColor(-1), theme.art, "negative index fallback")
+        expectEqual(ctx.artColor(ctx.artCells.count), theme.art, "past-end index fallback")
+    }
+}
+
+// MARK: - Renderer batch reuse
+
+test("Renderer reuse matches fresh batches after palette and grid changes") {
+    let renderer = GlyphRenderer(fontSize: 14)
+    let width = 320, height = 180
+    func pixels(_ renderer: GlyphRenderer, _ canvas: GlyphCanvas, _ background: RGBA) -> Data {
+        let context = CGContext(data: nil, width: width, height: height,
+            bitsPerComponent: 8, bytesPerRow: width * 4,
+            space: CGColorSpace(name: CGColorSpace.sRGB)!,
+            bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+        renderer.draw(canvas: canvas, background: background, in: context,
+                      size: CGSize(width: width, height: height))
+        return Data(bytes: context.data!, count: height * context.bytesPerRow)
+    }
+    for frame in 0..<24 {
+        var canvas = GlyphCanvas(cols: frame % 2 == 0 ? 18 : 12, rows: 6)
+        let theme = Theme.all[frame % Theme.all.count]
+        // Empty frames must not replay the previous frame's batches.
+        if frame % 4 != 3 {
+            for y in 0..<canvas.rows {
+                for x in 0..<canvas.cols {
+                    let scalar: Unicode.Scalar = ["A", "▓", "λ", " "][(x + y) % 4]
+                    canvas.put(GlyphCell(scalar,
+                        fg: theme.rampColor(Float(x) / Float(canvas.cols)),
+                        bg: x % 3 == 0 ? theme.accent.withAlpha(0.4) : nil,
+                        bold: (x + frame) % 2 == 0), x: x, y: y)
+                }
+            }
+        }
+        expectEqual(pixels(renderer, canvas, theme.background),
+                    pixels(GlyphRenderer(fontSize: 14), canvas, theme.background),
+                    "reused renderer matches fresh renderer at frame \(frame)")
+    }
 }
 
 // MARK: - SeededRandom

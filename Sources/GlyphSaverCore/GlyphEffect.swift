@@ -8,6 +8,7 @@ public struct EffectContext {
     public let reducedMotion: Bool
     /// Per-art-cell gradient position (diagonal across the art's bounding box).
     private let artT: [Float]
+    private let staticArtColors: [RGBA]
 
     public init(cols: Int, rows: Int, art: AsciiArt, theme: Theme,
                 seed: UInt64, reducedMotion: Bool) {
@@ -20,21 +21,29 @@ public struct EffectContext {
         self.reducedMotion = reducedMotion
 
         if theme.artGradient.count > 1, !cells.isEmpty {
-            let minX = cells.map(\.x).min() ?? 0
-            let minY = cells.map(\.y).min() ?? 0
-            let maxX = cells.map(\.x).max() ?? 0
-            let maxY = cells.map(\.y).max() ?? 0
+            var minX = cells[0].x, maxX = minX
+            var minY = cells[0].y, maxY = minY
+            for cell in cells.dropFirst() {
+                minX = min(minX, cell.x)
+                minY = min(minY, cell.y)
+                maxX = max(maxX, cell.x)
+                maxY = max(maxY, cell.y)
+            }
             let span = Float(max((maxX - minX) + (maxY - minY), 1))
             self.artT = cells.map { Float(($0.x - minX) + ($0.y - minY)) / span }
         } else {
             self.artT = []
         }
+        // Most themes are static; all effects can share their reset-time colors.
+        self.staticArtColors = theme.gradientSpeed == 0
+            ? artT.map { theme.artGradientColor($0) } : []
     }
 
     /// Final color for an art cell: theme gradient across the art (drifting over
     /// time when the theme animates), or the flat art color.
     public func artColor(_ index: Int, elapsed: Double = 0) -> RGBA {
         guard index >= 0, index < artT.count else { return theme.art }
+        if !staticArtColors.isEmpty { return staticArtColors[index] }
         return theme.artGradientColor(artT[index] + Float(elapsed) * theme.gradientSpeed)
     }
 }

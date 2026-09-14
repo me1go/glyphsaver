@@ -20,9 +20,23 @@ public final class GlyphRenderer {
     private var boldGlyphCache: [UInt32: (fontIndex: Int, glyph: CGGlyph)] = [:]
 
     private struct Group {
+        var fontIndex = 0
+        var color = RGBA.clear
         var glyphs: [CGGlyph] = []
         var positions: [CGPoint] = []
     }
+
+    private struct BackgroundGroup {
+        var color = RGBA.clear
+        var rects: [CGRect] = []
+    }
+
+    // Pool batches by frame slot, not color: animated palettes must not grow a
+    // persistent cache indefinitely. Keep array capacity across draws.
+    private var groups: [Group] = []
+    private var backgroundGroups: [BackgroundGroup] = []
+    private var groupIndices: [UInt64: Int] = [:]
+    private var backgroundIndices: [UInt32: Int] = [:]
 
     public init(fontSize: CGFloat) {
         let regular = GlyphRenderer.bestFont(size: fontSize, bold: false)
@@ -149,10 +163,10 @@ public final class GlyphRenderer {
             size.height - originTopY - CGFloat(row) * cellH - metrics.ascent
         }
 
-        // Pass 1: background fills (rare — glitch inverse-video cells).
-        var bgRects: [UInt32: (color: RGBA, rects: [CGRect])] = [:]
-        // Pass 2: glyph groups keyed by (fontIndex, colorKey).
-        var groups: [UInt64: (fontIndex: Int, color: RGBA, group: Group)] = [:]
+        groupIndices.removeAll(keepingCapacity: true)
+        backgroundIndices.removeAll(keepingCapacity: true)
+        var groupCount = 0
+        var backgroundCount = 0
 
         for i in canvas.cells.indices {
             let cell = canvas.cells[i]
@@ -167,30 +181,56 @@ public final class GlyphRenderer {
                     width: cellW, height: cellH
                 )
                 let key = GlyphRenderer.colorKey(bg)
-                bgRects[key, default: (bg, [])].rects.append(rect)
+                let index: Int
+                if let existing = backgroundIndices[key] {
+                    index = existing
+                } else {
+                    index = backgroundCount
+                    backgroundCount += 1
+                    backgroundIndices[key] = index
+                    if index == backgroundGroups.count { backgroundGroups.append(BackgroundGroup()) }
+                    backgroundGroups[index].color = bg
+                    backgroundGroups[index].rects.removeAll(keepingCapacity: true)
+                }
+                backgroundGroups[index].rects.append(rect)
             }
 
             guard cell.scalar != " ", cell.fg.a > 0.01 else { continue }
             let (fontIndex, glyph) = resolveGlyph(cell.scalar, bold: cell.bold)
             guard glyph != 0 else { continue }
             let key = UInt64(fontIndex) << 32 | UInt64(GlyphRenderer.colorKey(cell.fg))
-            groups[key, default: (fontIndex, cell.fg, Group())].group.glyphs.append(glyph)
-            groups[key, default: (fontIndex, cell.fg, Group())].group.positions.append(
+            let index: Int
+            if let existing = groupIndices[key] {
+                index = existing
+            } else {
+                index = groupCount
+                groupCount += 1
+                groupIndices[key] = index
+                if index == groups.count { groups.append(Group()) }
+                groups[index].fontIndex = fontIndex
+                groups[index].color = cell.fg
+                groups[index].glyphs.removeAll(keepingCapacity: true)
+                groups[index].positions.removeAll(keepingCapacity: true)
+            }
+            groups[index].glyphs.append(glyph)
+            groups[index].positions.append(
                 CGPoint(x: originX + CGFloat(x) * cellW, y: baselineY(y))
             )
         }
 
-        for (_, entry) in bgRects {
+        for index in 0..<backgroundCount {
+            let entry = backgroundGroups[index]
             ctx.setFillColor(GlyphRenderer.cgColor(entry.color))
             ctx.fill(entry.rects)
         }
 
         ctx.setShouldSmoothFonts(false)  // no subpixel AA — we're on our own dark bg
         ctx.setShouldAntialias(true)
-        for (_, entry) in groups {
+        for index in 0..<groupCount {
+            let entry = groups[index]
             ctx.setFillColor(GlyphRenderer.cgColor(entry.color))
-            CTFontDrawGlyphs(fonts[entry.fontIndex], entry.group.glyphs,
-                             entry.group.positions, entry.group.glyphs.count, ctx)
+            CTFontDrawGlyphs(fonts[entry.fontIndex], entry.glyphs,
+                             entry.positions, entry.glyphs.count, ctx)
         }
     }
 }

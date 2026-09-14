@@ -13,7 +13,7 @@ public final class FractalEffect: ArtRevealEffect {
     private var thetaOffset = 0.0
     private var thetaSpeed = 0.35
     private var orbitRadius = 0.7885
-    private var zoom = 1.0
+    private var palette = [GlyphCell](repeating: .blank, count: 33)
     private var lockOrder: [Int] = []
     private var lockAccum = 0.0
     private var lockPos = 0
@@ -26,7 +26,6 @@ public final class FractalEffect: ArtRevealEffect {
             * (rng.chance(0.5) ? 1 : -1)
         // Radii near 0.7885 trace the classic morphing-Julia tour.
         orbitRadius = rng.double(in: 0.75...0.85)
-        zoom = 1.0
         lockOrder = rng.shuffled(Array(ctx.artCells.indices))
         lockAccum = 0
         lockPos = 0
@@ -79,6 +78,31 @@ public final class FractalEffect: ArtRevealEffect {
         let originR = -scale * aspect * 2
         let originI = -scale
 
+        // Escape counts share the same glyph and color across the entire frame.
+        // Rebuild only this tiny palette as the gradient drifts.
+        for iter in 2...maxIter {
+            let f = Float(iter) / Float(maxIter)
+            let scalar: Unicode.Scalar
+            let color: RGBA
+            if iter >= maxIter {
+                scalar = "█"
+                color = theme.artGradient.count > 1
+                    ? theme.artGradientColor(0.9)
+                    : theme.rampColor(0.9)
+            } else {
+                let idx = min(Int(f * Float(FractalEffect.density.count - 2)) + 1,
+                          FractalEffect.density.count - 2)
+                scalar = FractalEffect.density[idx]
+                // Color by escape speed, drifting with the theme gradient.
+                let t = f + Float(elapsed) * theme.gradientSpeed
+                color = theme.artGradient.count > 1
+                    ? theme.artGradientColor(t)
+                    : theme.rampColor(min(f * 1.15, 1))
+            }
+            palette[iter] = GlyphCell(scalar,
+                fg: color.scaled(0.35 + 0.65 * f).withAlpha(alpha))
+        }
+
         for y in 0..<rows {
             let zi0 = originI + Double(y) * stepY
             for x in 0..<cols {
@@ -92,26 +116,7 @@ public final class FractalEffect: ArtRevealEffect {
                     iter += 1
                 }
                 guard iter > 1 else { continue }  // fast-escape cells stay dark
-                let f = Float(iter) / Float(maxIter)
-                let scalar: Unicode.Scalar
-                let color: RGBA
-                if iter >= maxIter {
-                    scalar = "█"
-                    color = theme.artGradient.count > 1
-                        ? theme.artGradientColor(0.9)
-                        : theme.rampColor(0.9)
-                } else {
-                    let idx = min(Int(f * Float(FractalEffect.density.count - 2)) + 1,
-                                  FractalEffect.density.count - 2)
-                    scalar = FractalEffect.density[idx]
-                    // Color by escape speed, drifting with the theme gradient.
-                    let t = f + Float(elapsed) * theme.gradientSpeed
-                    color = theme.artGradient.count > 1
-                        ? theme.artGradientColor(t)
-                        : theme.rampColor(min(f * 1.15, 1))
-                }
-                canvas.put(GlyphCell(scalar, fg: color.scaled(0.35 + 0.65 * f).withAlpha(alpha)),
-                           x: x, y: y)
+                canvas.put(palette[iter], x: x, y: y)
             }
         }
     }

@@ -23,7 +23,7 @@ let package = Package(
         ),
         .executableTarget(
             name: "GlyphSaverTests",
-            dependencies: ["GlyphSaverCore"],
+            dependencies: ["GlyphSaverCore", "GlyphSaverKit"],
             path: "Tests"
         ),
     ]

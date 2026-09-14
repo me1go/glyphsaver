@@ -97,6 +97,29 @@ test("Canvas fadeAll moves colors toward target") {
     expectEqual(c.at(x: 0, y: 0)?.fg, .black, "full fade reaches target")
 }
 
+test("Art colors preserve static and animated gradient sampling") {
+    for theme in Theme.all {
+        let ctx = makeContext(art: AsciiArt(text: "ABC\nDEF"), theme: theme)
+        let minX = ctx.artCells.map(\.x).min()!
+        let minY = ctx.artCells.map(\.y).min()!
+        let maxX = ctx.artCells.map(\.x).max()!
+        let maxY = ctx.artCells.map(\.y).max()!
+        let span = Float(max(maxX - minX + maxY - minY, 1))
+        for elapsed in [0.0, 3.5, 60.0] {
+            for (index, cell) in ctx.artCells.enumerated() {
+                let t = Float(cell.x - minX + cell.y - minY) / span
+                let expected = theme.artGradient.count > 1
+                    ? theme.artGradientColor(t + Float(elapsed) * theme.gradientSpeed)
+                    : theme.art
+                expectEqual(ctx.artColor(index, elapsed: elapsed), expected,
+                            "gradient sample for \(theme.id)")
+            }
+        }
+        expectEqual(ctx.artColor(-1), theme.art, "negative index fallback")
+        expectEqual(ctx.artColor(ctx.artCells.count), theme.art, "past-end index fallback")
+    }
+}
+
 // MARK: - SeededRandom
 
 test("SeededRandom is deterministic") {
